@@ -13,31 +13,30 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 )
 
-
-type Application struct{
-	DB  *sql.DB
+type Application struct {
+	DB     *sql.DB
 	Models data.Models
 }
 
 const webPort = "80"
+
 var counts int64
-func main(){
+
+func main() {
 	log.Println("Starting authentication service...")
 
-	//TODO
 	conn := connectToDB()
 	if conn == nil {
 		log.Panic("Can not connect to sql...")
 	}
 
-
 	app := Application{
-		DB: conn,
+		DB:     conn,
 		Models: data.New(conn),
 	}
 
 	srv := &http.Server{
-		Addr: fmt.Sprintf(":%s", webPort),
+		Addr:    fmt.Sprintf(":%s", webPort),
 		Handler: app.routes(),
 	}
 	err := srv.ListenAndServe()
@@ -47,9 +46,8 @@ func main(){
 	}
 }
 
-
-func openDB(dsn string) (*sql.DB, error){
-	db, err :=  sql.Open("pgx", dsn)
+func openDB(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +57,6 @@ func openDB(dsn string) (*sql.DB, error){
 	}
 	return db, nil
 }
-
 
 func connectToDB() *sql.DB {
 	dsn := os.Getenv("DSN")
