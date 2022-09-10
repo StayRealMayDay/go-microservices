@@ -26,17 +26,18 @@ type Models struct {
 }
 
 type LogoEntry struct {
-	ID        string    `bson:"_id,moitepmty" json:"id,omitempty"`
-	Name      string    `bson:"name" json:"name"`
-	Data      string    `bson:"data" json:"data"`
-	CreatedAt time.Time `bson:"created_at" json:"created_at"`
-	UpdatedAt time.Time `bson:"updated_at" json:"updated_at"`
+	ID        primitive.ObjectID `bson:"_id,moitepmty" json:"id,omitempty"`
+	Name      string             `bson:"name" json:"name"`
+	Data      string             `bson:"data" json:"data"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
 }
 
 func (l *LogoEntry) Insert(entry LogoEntry) error {
 	collection := client.Database("logs").Collection("logs")
 
 	_, err := collection.InsertOne(context.TODO(), LogoEntry{
+		ID:        primitive.NewObjectID(),
 		Name:      entry.Name,
 		Data:      entry.Data,
 		CreatedAt: time.Now(),
@@ -117,13 +118,13 @@ func (l *LogoEntry) Update() (*mongo.UpdateResult, error) {
 
 	collection := client.Database("logs").Collection("logs")
 
-	docID, err := primitive.ObjectIDFromHex(l.ID)
+	// docID, err := primitive.ObjectIDFromHex(l.ID)
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	result, err := collection.UpdateOne(ctx, bson.M{"_id": docID}, bson.D{
+	result, err := collection.UpdateOne(ctx, bson.M{"_id": l.ID}, bson.D{
 		{"$set", bson.D{
 			{"name", l.Name},
 			{"data", l.Data},
