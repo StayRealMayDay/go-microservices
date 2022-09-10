@@ -1,6 +1,7 @@
 package main
 
 import (
+	"borker/event"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -11,7 +12,7 @@ import (
 type RequestPayload struct {
 	Action string      `json:"action"`
 	Auth   AuthPayload `json:"auth,omitempty"`
-	Log    LogPaylod   `json:"log,omitempty"`
+	Log    LogPayload  `json:"log,omitempty"`
 }
 
 type AuthPayload struct {
@@ -19,7 +20,7 @@ type AuthPayload struct {
 	Password string `json:"password"`
 }
 
-type LogPaylod struct {
+type LogPayload struct {
 	Name string `json:"name"`
 	Data string `json:"data"`
 }
@@ -44,13 +45,45 @@ func (app *Application) HandleSubmission(w http.ResponseWriter, r *http.Request)
 	case "auth":
 		app.authenticate(w, requestPayload.Auth)
 	case "log":
-		app.logItem(w, requestPayload.Log)
+		app.logEventViaRabbit(w, requestPayload.Log)
 	default:
 		app.errorJSON(w, errors.New("unknow action"))
 	}
 }
 
-func (app *Application) logItem(w http.ResponseWriter, entry LogPaylod) {
+func (app *Application) logEventViaRabbit(w http.ResponseWriter, payload LogPayload) {
+	err := app.pushToQueue(payload.Name, payload.Data)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	var responsePayload jsonResponse
+	responsePayload.Error = false
+	responsePayload.Message = "Logged via RabbitMQ"
+	app.wirteJSON(w, http.StatusAccepted, responsePayload)
+}
+
+func (app *Application) pushToQueue(name, msg string) error {
+	emitter, err := event.NewEventEmitter(app.Rabbit)
+	if err != nil {
+		return err
+	}
+	payload := LogPayload{
+		Name: name,
+		Data: msg,
+	}
+	// payloadBytes := new(bytes.Buffer)
+	// _ = json.NewEncoder(payloadBytes).Encode(payload)
+	j, _ := json.MarshalIndent(&payload, "", "\n")
+
+	err = emitter.Push(string(j), "log.INFO")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (app *Application) logItem(w http.ResponseWriter, entry LogPayload) {
 	jsonData, _ := json.MarshalIndent(entry, "", "\t")
 	request, err := http.NewRequest("POST", "http://logger-service/log", strings.NewReader(string(jsonData)))
 	if err != nil {
