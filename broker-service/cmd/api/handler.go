@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/rpc"
 	"strings"
 )
 
@@ -45,7 +46,7 @@ func (app *Application) HandleSubmission(w http.ResponseWriter, r *http.Request)
 	case "auth":
 		app.authenticate(w, requestPayload.Auth)
 	case "log":
-		app.logEventViaRabbit(w, requestPayload.Log)
+		app.LogItemVisRPC(w, requestPayload.Log)
 	default:
 		app.errorJSON(w, errors.New("unknow action"))
 	}
@@ -170,4 +171,32 @@ func (app *Application) authenticate(w http.ResponseWriter, a AuthPayload) {
 	}
 
 	app.wirteJSON(w, http.StatusAccepted, payload)
+}
+
+type RPCPayload struct {
+	Name string
+	Data string
+}
+
+func (app *Application) LogItemVisRPC(w http.ResponseWriter, l LogPayload) {
+	client, err := rpc.Dial("tcp", "logger-service:5001")
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	rpyPayload := RPCPayload{
+		Name: l.Name,
+		Data: l.Data,
+	}
+	var result string
+	err = client.Call("RPCServer.LogInfo", rpyPayload, &result)
+	if err != nil {
+		app.errorJSON(w, err)
+		return
+	}
+	jsonResponse := jsonResponse{
+		Error:   false,
+		Message: result,
+	}
+	app.wirteJSON(w, http.StatusAccepted, jsonResponse)
 }
